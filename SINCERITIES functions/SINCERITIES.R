@@ -26,6 +26,7 @@
 # 6- for Jensen-Shannon
 # 7- for Hellinger
 # 8- for Wasserstein
+# 9- Total Variational Distance
 #
 # result=SINCERITIES(DATA,distance,method) 
 #
@@ -76,12 +77,13 @@
 
 function(DATA,distance=1,method=1,noDIAG=0,SIGN=1){
   
-  if(!distance%in%c(1,2,3,4,5,6,7,8)){
+  if(!distance%in%c(1,2,3,4,5,6,7,8,9)){
     stop("Choose distance metric with 1,2,3,4,5,6,7 and 8: 1 for Kolmogorov-Smirnov(KM), 2 for Cramer-von Mises(CM), 
-         3 for Anderson-Darling(AD), 4 for Mean Expression, 5 for Kullback-Leiber, 6 for Jensen-Shannon, 7 for Hellinger, 8 for Wasserstein")
+         3 for Anderson-Darling(AD), 4 for Mean Expression, 5 for Kullback-Leiber, 6 for Jensen-Shannon, 7 for Hellinger, 
+         8 for Wasserstein, 9 for Total Variational Distance")
   }
   
-  if(!method%in%c(1,2,3,4)){
+  if(!method%in%c(1,2,3,4,5,6)){
     stop("Choose regularization regression strategy with 1,2,3,4 and 5: 1 for RIDGE, 2 for ELASTIC NET with automatic
          detection of optimal alpha parameter, 3 for LASSO, 4 for ELASTIC NET with manual selection of alpha parameter, 5 for Fused Lasso")
   }
@@ -156,6 +158,10 @@ function(DATA,distance=1,method=1,noDIAG=0,SIGN=1){
       else if(distance==8){
         DISTANCE_matrix[ti,gi] <- wasserstein1d(p1,p2)
       }
+#Total Variation Distance
+      else if(distance==9){
+        DISTANCE_matrix[ti,gi] <- 0.5 * sum(abs(p1 - p2))
+      }
       else{
         print("pick a number between 1 and 8")
       }
@@ -167,7 +173,6 @@ function(DATA,distance=1,method=1,noDIAG=0,SIGN=1){
   DISTANCE_matrix_normed <- DISTANCE_matrix/deltaT
   
   #Generate Y and X_matrix for glmnet
-  regression <- "ridge"
   
   if(method==1){
     alphas <- 0
@@ -175,16 +180,12 @@ function(DATA,distance=1,method=1,noDIAG=0,SIGN=1){
     alphas <- seq(0,1,0.1)
   }else if(method==3){
     alphas <- 1
-  }else if(method == 4){
+  }else if(method == 10){
     input <- readline(' *** Please input manually the alpha values (between 0 and 1) separated by comma: ')
     alphas <- as.numeric(unlist(strsplit(input,',')))
   #Fused Lasso
-  }else if(method==5){
+  }else if(method==4){
     alphas <- 0.5
-#Linear Kernel Ridge Regression
-  }else if (method==6){
-    regression <- "kernel"
-    alphas <- NULL
   }else{
     print("Pick a number between 1 and 5")
   }
@@ -207,7 +208,6 @@ function(DATA,distance=1,method=1,noDIAG=0,SIGN=1){
     cvERROR <-  vector()
     beta <- matrix(data=0,nrow = dim(X_matrix)[2],ncol = length(alphas))
     Y_vector <- DISTANCE_matrix[2:(num_time_points-1),gi]
-    if(regression=="ridge"){
       for (test in 1:length(alphas)) {
         Y_vector <- DISTANCE_matrix[2:(num_time_points-1),gi]
         if(noDIAG==1){
@@ -226,11 +226,6 @@ function(DATA,distance=1,method=1,noDIAG=0,SIGN=1){
       lambda_res[gi] <- lambda[minIdx]
       alpha_res[gi] <- alphas[minIdx]
       pred_lambda_min[,gi] <- beta[,minIdx]
-    }
-    
-    else if (method == "kernel") {
-      
-    }
   }
   
   if(SIGN==1){
